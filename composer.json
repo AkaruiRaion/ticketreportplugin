@@ -1,0 +1,23 @@
+{
+    "name": "yourcompany/glpi-ticketreport",
+    "description": "GLPI 9.4 plugin: export a user's closed tickets to an XLSX report",
+    "type": "glpi-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=7.2",
+        "phpoffice/phpspreadsheet": "1.18"
+    },
+    "config": {
+        "platform": {
+            "php": "7.2"
+        }
+    },
+    "policy": {
+        "advisories": {
+            "ignore": [
+                "phpoffice/phpspreadsheet"
+            ]
+        }
+    }
+}
+

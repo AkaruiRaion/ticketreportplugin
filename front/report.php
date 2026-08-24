@@ -82,24 +82,14 @@ echo "</td></tr>";
 // --- Кнопка отправки ---
 echo "<tr class='tab_bg_2'>";
 echo "<td colspan='2' class='center'>";
-$token = Session::getNewCSRFToken();
 
-// echo "<pre>";
-// echo "TOKEN = $token\n";
-// echo session_id() . "\n";
-// echo "SESSION TOKENS:\n";
-// print_r(array_keys($_SESSION['glpicsrftokens']));
-// echo "</pre>";
-
-echo "<input type='hidden' name='_glpi_csrf_token' value='$token'>";
-//echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
 echo "<input type='submit' name='generate' class='submit' value=\""
    . __s('Сформировать отчёт', 'ticketreport') . "\">";
 echo "</td></tr>";
 
 echo "</table>";
 echo "</form>";
-//Html::closeForm();
+Html::closeForm();
 echo "</div>";
 
 Html::footer();

@@ -15,18 +15,7 @@
  * -------------------------------------------------------------------------
  */
 
-// echo "Before includes<br>";
-// echo session_id() . "<br>";
-
 include('../../../inc/includes.php');
-
-// echo "After includes<br>";
-// echo session_id() . "<br>";
-// exit;
-
-// ini_set('display_errors', 1);
-// ini_set('display_startup_errors', 1);
-// error_reporting(E_ALL);
 
 Session::checkLoginUser();
 Session::checkRight('plugin_ticketreport', READ);
@@ -35,20 +24,6 @@ if (!isset($_POST['generate'])) {
    Html::back();
    exit;
 }
-
-// Защита от CSRF (плагин зарегистрирован как csrf_compliant в setup.php)
-// echo "<pre>";
-
-// echo "POST\n";
-// var_dump($_POST['_glpi_csrf_token']);
-
-// echo "SESSION\n";
-// print_r(array_keys($_SESSION['glpicsrftokens']));
-
-// exit;
-// if(GLPI_USE_CSRF_CHECK) {
-//    Session::checkCSRF($_POST);
-// }
 
 $users_id = (int) ($_POST['users_id'] ?? 0);
 $month    = (int) ($_POST['month'] ?? 0);
@@ -66,8 +41,17 @@ if ($users_id <= 0 || $month < 1 || $month > 12 || $year < 1970) {
 
 // 1. Получение данных — исключительно через сервис Report
 $reportService = new PluginTicketreportReport();
-// var_dump($reportService);
 $rows = $reportService->getClosedTicketsByUserAndPeriod($users_id, $month, $year);
+
+if(count($rows) == 0) {
+   Session::addMessageAfterRedirect(
+      __('У пользоваткеля нет закрытых заявок в выбранном месяце.', 'ticketreport'),
+      false,
+      ERROR
+   );
+   Html::back();
+   exit;
+}
 
 // 2. Формирование и скачивание файла — исключительно через сервис Excel
 $sheetTitle = sprintf('%02d-%d', $month, $year);

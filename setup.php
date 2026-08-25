@@ -1,4 +1,5 @@
 <?php
+
 /**
  * -------------------------------------------------------------------------
  * TicketReport plugin for GLPI
@@ -27,8 +28,14 @@ define('PLUGIN_TICKETREPORT_MAX_GLPI', '11.0');
  * Инициализация плагина.
  * Вызывается GLPI на каждой странице, если плагин установлен и активирован.
  */
-function plugin_init_ticketreport() {
+function plugin_init_ticketreport()
+{
    global $PLUGIN_HOOKS;
+
+   // Подключаем CSS-файл плагина на всех страницах GLPI
+   $PLUGIN_HOOKS['add_css']['ticketreport'] = [
+      'css/ticketreport.css'
+   ];
 
    // Обязательно для плагинов, использующих HTML-формы с CSRF-токеном
    $PLUGIN_HOOKS['csrf_compliant']['ticketreport'] = true;
@@ -50,7 +57,8 @@ function plugin_init_ticketreport() {
 /**
  * Метаданные плагина (обязательная функция для GLPI 9.4).
  */
-function plugin_version_ticketreport() {
+function plugin_version_ticketreport()
+{
    return [
       'name'         => 'Отчёты по закрытым заявкам (TicketReport)',
       'version'      => PLUGIN_TICKETREPORT_VERSION,
@@ -73,7 +81,8 @@ function plugin_version_ticketreport() {
  * Проверка окружения перед установкой плагина.
  * Проверяет версию PHP и наличие библиотеки PhpSpreadsheet (vendor/).
  */
-function plugin_ticketreport_check_prerequisites() {
+function plugin_ticketreport_check_prerequisites()
+{
    if (version_compare(PHP_VERSION, '7.2.0', '<')) {
       echo 'Этому плагину требуется PHP версии 7.2 или выше.';
       return false;
@@ -92,6 +101,7 @@ function plugin_ticketreport_check_prerequisites() {
 /**
  * Проверка конфигурации плагина, отображается на странице списка плагинов.
  */
-function plugin_ticketreport_check_config($verbose = false) {
+function plugin_ticketreport_check_config($verbose = false)
+{
    return true;
 }

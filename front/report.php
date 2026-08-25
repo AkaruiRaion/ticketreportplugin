@@ -1,4 +1,5 @@
 <?php
+
 /**
  * -------------------------------------------------------------------------
  * TicketReport plugin for GLPI
@@ -28,20 +29,43 @@ Html::header(
 );
 
 echo "<div class='center'>";
-echo "<form name='ticketreport_form' method='post' action='" . $CFG_GLPI["root_doc"] . "/plugins/ticketreport/front/report.export.php'>";
+echo "<form name='ticketreport_form' class='ticketreport-form' method='post' action='" . $CFG_GLPI["root_doc"] . "/plugins/ticketreport/front/report.export.php'>";
 echo "<table class='tab_cadre' style='width:600px;'>";
 echo "<tr><th colspan='2'>" . __('Отчёт по закрытым заявкам пользователя', 'ticketreport') . "</th></tr>";
+
+// --- Группа ---
+$allowed_group_ids = [1, 2];
+$condition = '`id` IN (' . implode(',', array_map('intval', $allowed_group_ids)) . ')';
+
+echo "<tr class='tab_bg_1'>";
+echo "<td style='width:200px;'>" . __('Группа') . "</td>";
+echo "<td>";
+
+Group::dropdown([
+   'name'      => 'groups_id',
+   'value'     => 0,
+   'emptylabel' => __('Выберите группу'),
+   'condition' => $condition,
+   'display'   => true,
+   'comments'  => false,
+]);
+
+echo "</td>";
+echo "</tr>";
 
 // --- Пользователь ---
 echo "<tr class='tab_bg_1'>";
 echo "<td style='width:200px;'>" . __('Пользователь') . "</td>";
-echo "<td>";
+echo "<td id='users_container'>";
+
 User::dropdown([
    'name'     => 'users_id',
    'value'    => 0,
    'right'    => 'all',
    'comments' => false,
+   'display'  => true
 ]);
+
 echo "</td></tr>";
 
 // --- Месяц ---
@@ -83,13 +107,37 @@ echo "</td></tr>";
 echo "<tr class='tab_bg_2'>";
 echo "<td colspan='2' class='center'>";
 
+echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
 echo "<input type='submit' name='generate' class='submit' value=\""
    . __s('Сформировать отчёт', 'ticketreport') . "\">";
 echo "</td></tr>";
 
 echo "</table>";
-echo "</form>";
 Html::closeForm();
 echo "</div>";
+
+echo <<<HTML
+<script>
+$(document).on('change', 'select[name="groups_id"]', function() {
+
+    var groupsId = parseInt($(this).val(), 10) || 0;
+
+    $.ajax({
+        url: '{$CFG_GLPI['root_doc']}/plugins/ticketreport/front/user.dropdown.php',
+        type: 'GET',
+        data: {
+            groups_id: groupsId
+        },
+        success: function(html) {
+            $('#users_container').html(html);
+        },
+        error: function(xhr) {
+            console.log(xhr.responseText);
+        }
+    });
+
+});
+</script>
+HTML;
 
 Html::footer();

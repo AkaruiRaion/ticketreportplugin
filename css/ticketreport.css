@@ -1,0 +1,32 @@
+.ticketreport-form table {
+    overflow: hidden;
+    border-radius: 10px;
+    font-size: 12px;
+}
+.ticketreport-form tr:nth-child(2) td {
+    padding-top: 20px;
+}
+.ticketreport-form tr:first-child th:first-child { border-top-left-radius: 10px; }
+.ticketreport-form tr:first-child th:last-child { border-top-right-radius: 10px; }
+
+.ticketreport-form tr:last-child td:first-child { border-bottom-left-radius: 10px; }
+.ticketreport-form tr:last-child td:last-child { border-bottom-right-radius: 10px; }
+
+.ticketreport-form th {
+    background-color: #3a5693;
+    color: white;
+    padding: 12px 0;
+}
+
+.ticketreport-form td {
+    padding: 10px 16px;
+}
+
+.ticketreport-form input[type="submit"] {
+    background-color: #3a5693;
+    color: white;
+    padding: 10px 24px;
+    font-size: 12px;
+    border-radius: 5px;
+    margin: 10px 0;
+}

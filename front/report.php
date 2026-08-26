@@ -29,7 +29,7 @@ Html::header(
 );
 
 echo "<div class='center'>";
-echo "<form name='ticketreport_form' class='ticketreport-form' method='post' action='" . $CFG_GLPI["root_doc"] . "/plugins/ticketreport/front/report.export.php'>";
+echo "<form id='ticketreport_form' name='ticketreport_form' class='ticketreport-form' method='post' action='" . $CFG_GLPI["root_doc"] . "/plugins/ticketreport/front/report.export.php'>";
 echo "<table class='tab_cadre' style='width:600px;'>";
 echo "<tr><th colspan='2'>" . __('Отчёт по закрытым заявкам пользователя', 'ticketreport') . "</th></tr>";
 
@@ -136,6 +136,12 @@ $(document).on('change', 'select[name="groups_id"]', function() {
         }
     });
 
+});
+
+$(document).on('submit', '#ticketreport_form', function(e) {
+        setTimeout(function() {
+            window.location.reload();
+        }, 1500);
 });
 </script>
 HTML;

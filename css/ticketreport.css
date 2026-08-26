@@ -1,3 +1,7 @@
+.center {
+    padding: 100px 0;                                                                                
+}               
+
 .ticketreport-form table {
     overflow: hidden;
     border-radius: 10px;

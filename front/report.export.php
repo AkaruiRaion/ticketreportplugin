@@ -29,7 +29,7 @@ $users_id = (int) ($_POST['users_id'] ?? 0);
 $month    = (int) ($_POST['month'] ?? 0);
 $year     = (int) ($_POST['year'] ?? 0);
 
-if ($users_id <= 0 || $month < 1 || $month > 12 || $year < 1970) {
+if ($users_id <= 0 || $month < 1 || $month > 12 || $year < 2010) {
    Session::addMessageAfterRedirect(
       __('Некорректные параметры формы. Проверьте выбранные значения.', 'ticketreport'),
       false,

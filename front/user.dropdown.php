@@ -29,6 +29,7 @@ if ($groupsId > 0) {
         'name'     => 'users_id',
         'value'    => 0,
         'right'    => 'all',
+        'width' => '50%',
         'comments' => false,
         'display'  => true
     ]);

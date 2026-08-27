@@ -33,8 +33,8 @@ echo "<form id='ticketreport_form' name='ticketreport_form' class='ticketreport-
 echo "<table class='tab_cadre' style='width:600px;'>";
 echo "<tr><th colspan='2'>" . __('Отчёт по закрытым заявкам пользователя', 'ticketreport') . "</th></tr>";
 
-// --- Группа ---
-$allowed_group_ids = [1, 2];
+// // --- Группа ---
+$allowed_group_ids = [6, 7, 8];
 $condition = '`id` IN (' . implode(',', array_map('intval', $allowed_group_ids)) . ')';
 
 echo "<tr class='tab_bg_1'>";
@@ -61,9 +61,10 @@ echo "<td id='users_container'>";
 User::dropdown([
    'name'     => 'users_id',
    'value'    => 0,
+   'width' => '50%',
    'right'    => 'all',
    'comments' => false,
-   'display'  => true
+   'display'  => true,
 ]);
 
 echo "</td></tr>";

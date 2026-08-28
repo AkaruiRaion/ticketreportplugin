@@ -1,4 +1,5 @@
 <?php
+
 /**
  * -------------------------------------------------------------------------
  * TicketReport plugin for GLPI
@@ -29,6 +30,7 @@ $users_id = (int) ($_POST['users_id'] ?? 0);
 $month    = (int) ($_POST['month'] ?? 0);
 $year     = (int) ($_POST['year'] ?? 0);
 $groups_id = (int) ($_POST['groups_id'] ?? 0);
+$status = (int) ($_POST['status'] ?? 0);
 
 $allowed_group_ids = [6, 7, 8];
 
@@ -62,6 +64,28 @@ if ($month < 1 || $month > 12 || $year < 2010) {
    exit;
 }
 
+if ($status < 0 || $status > 2) {
+   Session::addMessageAfterRedirect(
+      __('Некорректный статус заявки.', 'ticketreport'),
+      false,
+      ERROR
+   );
+   Html::back();
+   exit;
+}
+
+if ($status === 0) {
+   Session::addMessageAfterRedirect(
+      __('Не выбран статус заявки.', 'ticketreport'),
+      false,
+      ERROR
+   );
+   Html::back();
+   exit;
+}
+
+
+
 $reportService = new PluginTicketreportReport();
 
 // 1. Один конкретный пользователь
@@ -90,15 +114,24 @@ if ($users_id > 0) {
    $rows = $reportService->getClosedTicketsByUserAndPeriod(
       $users_id,
       $month,
-      $year
+      $year,
+      $status
    );
 
    if (count($rows) === 0) {
-      Session::addMessageAfterRedirect(
-         __('У пользователя нет закрытых заявок в выбранном месяце.', 'ticketreport'),
-         false,
-         ERROR
-      );
+      if ($status === 1) {
+         Session::addMessageAfterRedirect(
+            __('У пользователя нет активных заявок в выбранном месяце.', 'ticketreport'),
+            false,
+            ERROR
+         );
+      } else {
+         Session::addMessageAfterRedirect(
+            __('У пользователя нет закрытых заявок в выбранном месяце.', 'ticketreport'),
+            false,
+            ERROR
+         );
+      }
       Html::back();
       exit;
    }
@@ -109,7 +142,7 @@ if ($users_id > 0) {
    if (!$user->getFromDB($users_id)) {
       Session::addMessageAfterRedirect(
          __('Не удалось найти выбранного пользователя.', 'ticketreport'),
-         false,
+         false, 
          ERROR
       );
       Html::back();
@@ -167,7 +200,8 @@ if ($users_id === 0 && $groups_id > 0) {
    $rowsByUser = $reportService->getClosedTicketsByUsersAndPeriod(
       $userIds,
       $month,
-      $year
+      $year,
+      $status
    );
 
    $reports = [];
@@ -195,4 +229,3 @@ if ($users_id === 0 && $groups_id > 0) {
 
    $excelService->download($filename);
 }
-

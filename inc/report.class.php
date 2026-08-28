@@ -72,9 +72,9 @@ class PluginTicketreportReport
     *
     * @return array
     */
-   public function getClosedTicketsByUserAndPeriod(int $users_id, int $month, int $year): array
+   public function getClosedTicketsByUserAndPeriod(int $users_id, int $month, int $year, int $status): array
    {
-      $reports = $this->getClosedTicketsByUsersAndPeriod([$users_id], $month, $year);
+      $reports = $this->getClosedTicketsByUsersAndPeriod([$users_id], $month, $year, $status);
 
       return isset($reports[$users_id]) ? $reports[$users_id] : [];
    }
@@ -100,7 +100,7 @@ class PluginTicketreportReport
     *            ],
     *         ]
     */
-   public function getClosedTicketsByUsersAndPeriod(array $users_ids, int $month, int $year): array
+   public function getClosedTicketsByUsersAndPeriod(array $users_ids, int $month, int $year, int $status): array
    {
       global $DB;
 
@@ -118,6 +118,35 @@ class PluginTicketreportReport
       // Границы выбранного месяца.
       $start = sprintf('%04d-%02d-01 00:00:00', $year, $month);
       $end   = date('Y-m-d 23:59:59', strtotime($start . ' +1 month -1 day'));
+
+      $statusCondition = '';
+      $dateCondition = [];
+
+      if ($status === 1) {
+         $statusCondition = [
+            'glpi_tickets.status' => [
+               CommonITILObject::ASSIGNED,
+               CommonITILObject::PLANNED
+            ]
+         ];
+
+         $dateCondition = [
+            ['glpi_tickets.date_mod' => ['>=', $start]],
+            ['glpi_tickets.date_mod' => ['<=', $end]],
+         ];
+      } elseif ($status === 2) {
+         $statusCondition = [
+            'glpi_tickets.status' => [
+               CommonITILObject::SOLVED,
+               CommonITILObject::CLOSED
+            ]
+         ];
+
+         $dateCondition = [
+            ['glpi_tickets.closedate' => ['>=', $start]],
+            ['glpi_tickets.closedate' => ['<=', $end]],
+         ];
+      }
 
       $criteria = [
          'SELECT'     => [
@@ -137,10 +166,10 @@ class PluginTicketreportReport
          ],
          'WHERE'      => [
             'glpi_tickets_users.users_id' => $users_ids,
-            'glpi_tickets_users.type'     => CommonITILActor::REQUESTER,
+            'glpi_tickets_users.type'     => CommonITILActor::ASSIGN,
             'glpi_tickets.is_deleted'     => 0,
-            ['glpi_tickets.closedate' => ['>=', $start]],
-            ['glpi_tickets.closedate' => ['<=', $end]],
+            $statusCondition,
+            $dateCondition
          ],
          'ORDER'      => [
             'glpi_tickets_users.users_id ASC',
@@ -149,7 +178,7 @@ class PluginTicketreportReport
       ];
 
       $iterator = $DB->request($criteria);
-      
+
       foreach ($iterator as $row) {
          $user_id = (int) $row['users_id'];
 

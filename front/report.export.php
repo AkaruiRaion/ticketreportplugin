@@ -28,8 +28,31 @@ if (!isset($_POST['generate'])) {
 $users_id = (int) ($_POST['users_id'] ?? 0);
 $month    = (int) ($_POST['month'] ?? 0);
 $year     = (int) ($_POST['year'] ?? 0);
+$groups_id = (int) ($_POST['groups_id'] ?? 0);
 
-if ($users_id <= 0 || $month < 1 || $month > 12 || $year < 2010) {
+$allowed_group_ids = [6, 7, 8];
+
+if ($groups_id > 0 && !in_array($groups_id, $allowed_group_ids, true)) {
+   Session::addMessageAfterRedirect(
+      __('Выбрана недопустимая группа.', 'ticketreport'),
+      false,
+      ERROR
+   );
+   Html::back();
+   exit;
+}
+
+if ($users_id <= 0 && $groups_id <= 0) {
+   Session::addMessageAfterRedirect(
+      __('Не выбран пользователь или группа.', 'ticketreport'),
+      false,
+      ERROR
+   );
+   Html::back();
+   exit;
+}
+
+if ($month < 1 || $month > 12 || $year < 2010) {
    Session::addMessageAfterRedirect(
       __('Некорректные параметры формы. Проверьте выбранные значения.', 'ticketreport'),
       false,
@@ -39,24 +62,137 @@ if ($users_id <= 0 || $month < 1 || $month > 12 || $year < 2010) {
    exit;
 }
 
-// 1. Получение данных — исключительно через сервис Report
 $reportService = new PluginTicketreportReport();
-$rows = $reportService->getClosedTicketsByUserAndPeriod($users_id, $month, $year);
 
-if(count($rows) == 0) {
-   Session::addMessageAfterRedirect(
-      __('У пользоваткеля нет закрытых заявок в выбранном месяце.', 'ticketreport'),
-      false,
-      ERROR
+// 1. Один конкретный пользователь
+if ($users_id > 0) {
+   // Если одновременно выбрана группа, проверяем, что пользователь действительно входит в неё.
+   if ($groups_id > 0) {
+      $groupUsers = $reportService->getUsersByGroup($groups_id);
+      $groupUserIds = [];
+
+      foreach ($groupUsers as $groupUser) {
+         $groupUserIds[] = (int) $groupUser['id'];
+      }
+
+      if (!in_array($users_id, $groupUserIds, true)) {
+         Session::addMessageAfterRedirect(
+            __('Выбранный пользователь не входит в выбранную группу.', 'ticketreport'),
+            false,
+            ERROR
+         );
+         Html::back();
+         exit;
+      }
+   }
+
+   // Получаем заявки пользователя.
+   $rows = $reportService->getClosedTicketsByUserAndPeriod(
+      $users_id,
+      $month,
+      $year
    );
-   Html::back();
-   exit;
+
+   if (count($rows) === 0) {
+      Session::addMessageAfterRedirect(
+         __('У пользователя нет закрытых заявок в выбранном месяце.', 'ticketreport'),
+         false,
+         ERROR
+      );
+      Html::back();
+      exit;
+   }
+
+   // Определяем имя пользователя для названия листа.
+   $user = new User();
+
+   if (!$user->getFromDB($users_id)) {
+      Session::addMessageAfterRedirect(
+         __('Не удалось найти выбранного пользователя.', 'ticketreport'),
+         false,
+         ERROR
+      );
+      Html::back();
+      exit;
+   }
+
+   $userName = formatUserName(
+      $users_id,
+      $user->fields['name'],
+      $user->fields['realname'],
+      $user->fields['firstname']
+   );
+
+   $excelService = new PluginTicketreportExcel();
+
+   $excelService->build(
+      $rows,
+      $userName
+   );
+
+   $filename = sprintf(
+      'tickets_report_user%d_%02d_%d.xlsx',
+      $users_id,
+      $month,
+      $year
+   );
+
+   $excelService->download($filename);
 }
 
-// 2. Формирование и скачивание файла — исключительно через сервис Excel
-$sheetTitle = sprintf('%02d-%d', $month, $year);
-$filename   = sprintf('closed_tickets_report_user%d_%02d_%d.xlsx', $users_id, $month, $year);
+/*
+ * Режим 2: выбрана группа и "Все пользователи".
+ */
+if ($users_id === 0 && $groups_id > 0) {
 
-$excelService = new PluginTicketreportExcel();
-$excelService->build($rows, $sheetTitle);
-$excelService->download($filename); // завершает выполнение скрипта (exit)
+   $groupUsers = $reportService->getUsersByGroup($groups_id);
+
+   if (empty($groupUsers)) {
+      Session::addMessageAfterRedirect(
+         __('В выбранной группе нет пользователей.', 'ticketreport'),
+         false,
+         ERROR
+      );
+      Html::back();
+      exit;
+   }
+
+   $userIds = [];
+
+   foreach ($groupUsers as $groupUser) {
+      $userIds[] = (int) $groupUser['id'];
+   }
+
+   // Один запрос получает заявки сразу по всей группе.
+   $rowsByUser = $reportService->getClosedTicketsByUsersAndPeriod(
+      $userIds,
+      $month,
+      $year
+   );
+
+   $reports = [];
+
+   foreach ($groupUsers as $groupUser) {
+      $groupUserId = (int) $groupUser['id'];
+
+      $reports[] = [
+         'title' => $groupUser['name'],
+         'rows'  => isset($rowsByUser[$groupUserId])
+            ? $rowsByUser[$groupUserId]
+            : [],
+      ];
+   }
+
+   $excelService = new PluginTicketreportExcel();
+   $excelService->buildMultiple($reports);
+
+   $filename = sprintf(
+      'tickets_report_group%d_%02d_%d.xlsx',
+      $groups_id,
+      $month,
+      $year
+   );
+
+   $excelService->download($filename);
+}
+

@@ -7,11 +7,7 @@
  * inc/excel.class.php
  *
  * Назначение файла:
- * Сервис-класс, отвечающий ИСКЛЮЧИТЕЛЬНО за формирование Excel (XLSX)
- * файла на основе уже готового массива данных (принцип единственной
- * ответственности — SRP). Класс ничего не знает о базе данных GLPI и не
- * содержит ни одного SQL-запроса — он получает на вход простой массив.
- * Используется библиотека PhpOffice/PhpSpreadsheet.
+ * Сервис-класс, отвечающий ИСКЛЮЧИТЕЛЬНО за формирование Excel (XLSX).
  * -------------------------------------------------------------------------
  */
 
@@ -19,7 +15,6 @@ if (!defined('GLPI_ROOT')) {
    die("Sorry. You can't access this file directly");
 }
 
-// Подключаем автозагрузчик Composer (библиотека PhpSpreadsheet)
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -41,23 +36,79 @@ class PluginTicketreportExcel
    }
 
    /**
-    * Строит лист Excel по переданным данным.
-    * Структура:  | Дата | Наименование заявки | ID заявки |
+    * Строит один лист Excel по переданным данным.
     *
-    * @param array  $rows       Данные, полученные из PluginTicketreportReport
-    * @param string $sheetTitle Название листа (например "07-2026")
+    * @param array  $rows       Данные одного пользователя
+    * @param string $sheetTitle Название листа
     *
-    * @return self Для fluent-вызова build()->download()
+    * @return self
     */
    public function build(array $rows, string $sheetTitle = 'Report'): self
    {
       $sheet = $this->spreadsheet->getActiveSheet();
 
-      $sheet->setTitle(
-         substr($this->sanitizeSheetTitle($sheetTitle), 0, 31)
-      );
+      $sheet->setTitle($this->getUniqueSheetTitle($sheetTitle));
+      $this->fillSheet($sheet, $rows);
 
-      // Заголовки таблицы
+      return $this;
+   }
+
+   /**
+    * Строит одну книгу Excel с отдельным листом для каждого пользователя.
+    *
+    * Формат:
+    * [
+    *    [
+    *       'title' => 'Иванов Иван',
+    *       'rows'  => [...],
+    *    ],
+    *    ...
+    * ]
+    *
+    * @param array $reports
+    *
+    * @return self
+    */
+   public function buildMultiple(array $reports): self
+   {
+      if (empty($reports)) {
+         return $this;
+      }
+
+      $first = true;
+
+      foreach ($reports as $report) {
+         $title = isset($report['title']) ? (string) $report['title'] : 'Report';
+         $rows  = isset($report['rows']) && is_array($report['rows'])
+            ? $report['rows']
+            : [];
+
+         if ($first) {
+            $sheet = $this->spreadsheet->getActiveSheet();
+            $sheet->setTitle($this->getUniqueSheetTitle($title));
+            $first = false;
+         } else {
+            $sheet = $this->spreadsheet->createSheet();
+            $sheet->setTitle($this->getUniqueSheetTitle($title));
+         }
+
+         $this->fillSheet($sheet, $rows);
+      }
+
+      // Делаем первый лист активным.
+      $this->spreadsheet->setActiveSheetIndex(0);
+
+      return $this;
+   }
+
+   /**
+    * Заполняет конкретный лист.
+    *
+    * @param \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet
+    * @param array $rows
+    */
+   private function fillSheet($sheet, array $rows): void
+   {
       $headers = [
          '№',
          'Дата закрытия',
@@ -71,74 +122,102 @@ class PluginTicketreportExcel
 
       $headerStyle = $sheet->getStyle('A1:D1');
 
-      // Шрифт
       $headerStyle->getFont()->setBold(true)->setSize(12);
-
-      // Цвет фона
-      $headerStyle->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('333333');
-
-      // Цвет текста
+      $headerStyle->getFill()
+         ->setFillType(Fill::FILL_SOLID)
+         ->getStartColor()
+         ->setRGB('333333');
       $headerStyle->getFont()->getColor()->setRGB('FFFFFF');
+      $headerStyle->getAlignment()
+         ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+         ->setVertical(Alignment::VERTICAL_CENTER)
+         ->setWrapText(true);
 
-      // Выравнивание
-      $headerStyle->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER)->setWrapText(true);
-
-      // Высота строки заголовка
       $sheet->getRowDimension(1)->setRowHeight(30);
 
-      //ДАННЫЕ
+      // ДАННЫЕ
 
-      $line = 2;
-      $num = 1;
-
-      foreach ($rows as $row) {
-
-         $excelDate = \PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel(
-            new \DateTime($row['closedate'])
+      if (empty($rows)) {
+         $sheet->mergeCells('A2:D2');
+         $sheet->setCellValue(
+            'A2',
+            __('За выбранный период закрытых заявок нет.', 'ticketreport')
          );
 
-         $sheet->setCellValueExplicit('A' . $line, $num, DataType::TYPE_NUMERIC);
-         $sheet->setCellValue('B' . $line, $excelDate);
-         $sheet->getStyle('B' . $line)->getNumberFormat()->setFormatCode('dd.mm.yyyy');
-         $sheet->setCellValueExplicit('C' . $line, $row['name'], DataType::TYPE_STRING);
-         $sheet->setCellValueExplicit('D' . $line, $row['id'], DataType::TYPE_NUMERIC);
+         $sheet->getStyle('A2:D2')->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+            ->setVertical(Alignment::VERTICAL_CENTER)
+            ->setWrapText(true);
 
-         // Чередование цветов строк
+         $sheet->getRowDimension(2)->setRowHeight(30);
+      } else {
+         $line = 2;
+         $num = 1;
 
-         if ($num % 2 === 0) {
-            $sheet->getStyle('A' . $line . ':D' . $line)
-               ->getFill()
-               ->setFillType(
-                  Fill::FILL_SOLID
-               )
-               ->getStartColor()
-               ->setRGB('F2F2F2');
+         foreach ($rows as $row) {
+            $excelDate = \PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel(
+               new \DateTime($row['closedate'])
+            );
+
+            $sheet->setCellValueExplicit(
+               'A' . $line,
+               $num,
+               DataType::TYPE_NUMERIC
+            );
+
+            $sheet->setCellValue('B' . $line, $excelDate);
+            $sheet->getStyle('B' . $line)
+               ->getNumberFormat()
+               ->setFormatCode('dd.mm.yyyy');
+
+            $sheet->setCellValueExplicit(
+               'C' . $line,
+               $row['name'],
+               DataType::TYPE_STRING
+            );
+
+            $sheet->setCellValueExplicit(
+               'D' . $line,
+               $row['id'],
+               DataType::TYPE_NUMERIC
+            );
+
+            // Чередование цветов строк.
+            if ($num % 2 === 0) {
+               $sheet->getStyle('A' . $line . ':D' . $line)
+                  ->getFill()
+                  ->setFillType(Fill::FILL_SOLID)
+                  ->getStartColor()
+                  ->setRGB('F2F2F2');
+            }
+
+            $line++;
+            $num++;
          }
-
-         $line++;
-         $num++;
-      }
-
-      // ОФОРМЛЕНИЕ ТЕЛА ТАБЛИЦЫ
-
-      if ($line > 2) {
 
          $lastRow = $line - 1;
 
-         $bodyStyle = $sheet->getStyle('A2:D' . $lastRow);
+         // ОФОРМЛЕНИЕ ТЕЛА ТАБЛИЦЫ
 
-         // Вертикальное выравнивание
+         $bodyStyle = $sheet->getStyle('A2:D' . $lastRow);
          $bodyStyle->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
 
-         // Перенос текста для описания заявки
-         $sheet->getStyle('C2:C' . $lastRow)->getAlignment()->setWrapText(true);
+         $sheet->getStyle('C2:C' . $lastRow)
+            ->getAlignment()
+            ->setWrapText(true);
 
-         // №, дата и ID по центру
-         $sheet->getStyle('A2:A' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-         $sheet->getStyle('B2:B' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-         $sheet->getStyle('D2:D' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+         $sheet->getStyle('A2:A' . $lastRow)
+            ->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-         // Границы всей таблицы
+         $sheet->getStyle('B2:B' . $lastRow)
+            ->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+         $sheet->getStyle('D2:D' . $lastRow)
+            ->getAlignment()
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
          $sheet->getStyle('A1:D' . $lastRow)->applyFromArray([
             'borders' => [
                'allBorders' => [
@@ -150,47 +229,34 @@ class PluginTicketreportExcel
             ]
          ]);
 
-         // Высота строк с данными
          for ($rowNumber = 2; $rowNumber <= $lastRow; $rowNumber++) {
             $sheet->getRowDimension($rowNumber)->setRowHeight(30);
          }
+
+         $sheet->setAutoFilter('A1:D' . $lastRow);
       }
 
-      // Ширина колонок
-
+      // Ширина колонок.
       $sheet->getColumnDimension('A')->setWidth(10);
       $sheet->getColumnDimension('B')->setWidth(25);
       $sheet->getColumnDimension('C')->setWidth(90);
       $sheet->getColumnDimension('D')->setWidth(18);
 
-      // Доп. настройки
-
-      // Закрепляем строку заголовка
+      // Доп. настройки.
       $sheet->freezePane('A2');
-
-      // Включаем автофильтр
-      if ($line > 2) {
-         $sheet->setAutoFilter('A1:D' . ($line - 1));
-      }
-
-      // Печать заголовка на каждой странице
       $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 1);
-
-      // Альбомная ориентация
-      $sheet->getPageSetup()->setOrientation(\PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE);
-
-      // Подгонка таблицы по ширине страницы
+      $sheet->getPageSetup()->setOrientation(
+         \PhpOffice\PhpSpreadsheet\Worksheet\PageSetup::ORIENTATION_LANDSCAPE
+      );
       $sheet->getPageSetup()->setFitToWidth(1);
       $sheet->getPageSetup()->setFitToHeight(0);
-
-      return $this;
    }
 
    /**
-    * Отдаёт сформированный файл пользователю на скачивание и завершает
-    * выполнение скрипта.
+    * Отдаёт сформированный файл пользователю на скачивание
+    * и завершает выполнение скрипта.
     *
-    * @param string $filename Имя файла, например "report_2026_07.xlsx"
+    * @param string $filename
     */
    public function download(string $filename): void
    {
@@ -205,14 +271,44 @@ class PluginTicketreportExcel
       $writer = new Xlsx($this->spreadsheet);
       $writer->save('php://output');
       exit;
-
    }
 
    /**
-    * Excel запрещает в названии листа символы \ / ? * [ ] и длину > 31.
+    * Excel запрещает в названии листа символы \ / ? * [ ]
+    * и длину более 31 символа.
     */
    private function sanitizeSheetTitle(string $title): string
    {
-      return preg_replace('/[\\\\\/\?\*\[\]]/', '_', $title);
+      $title = preg_replace('/[\\\\\/\?\*\[\]:]/', '_', $title);
+      $title = trim($title);
+
+      if ($title === '') {
+         $title = 'Report';
+      }
+
+      return $title;
+   }
+
+   /**
+    * Возвращает допустимое и уникальное имя листа.
+    */
+   private function getUniqueSheetTitle(string $title): string
+   {
+      $base = mb_substr($this->sanitizeSheetTitle($title), 0, 31, 'UTF-8');
+
+      if (!$this->spreadsheet->getSheetByName($base)) {
+         return $base;
+      }
+
+      $index = 2;
+
+      do {
+         $suffix = ' (' . $index . ')';
+         $availableLength = 31 - strlen($suffix);
+         $candidate = mb_substr($base, 0, $availableLength, 'UTF-8') . $suffix;
+         $index++;
+      } while ($this->spreadsheet->getSheetByName($candidate));
+
+      return $candidate;
    }
 }

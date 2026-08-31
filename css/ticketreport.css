@@ -1,8 +1,5 @@
-.center {
-    padding: 100px 0;                                                                                
-}               
-
 .ticketreport-form table {
+    margin: 150px auto;
     overflow: hidden;
     border-radius: 10px;
     font-size: 12px;

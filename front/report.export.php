@@ -7,12 +7,11 @@
  * front/report.export.php
  *
  * Назначение файла:
- * Контроллер обработки отправленной формы. Проверяет права и CSRF-токен,
+ * Контроллер обработки отправленной формы. Проверяет права,
  * читает параметры формы, и только КООРДИНИРУЕТ вызовы двух сервисов:
  *   1. PluginTicketreportReport   — получение данных (весь SQL там)
  *   2. PluginTicketreportExcel    — построение и отдача XLSX-файла
- * Сам файл не содержит ни одного SQL-запроса и не работает с
- * PhpSpreadsheet напрямую — это и есть разделение ответственности (SRP).
+ * Сам файл не содержит ни одного SQL-запроса и не работает с PhpSpreadsheet напрямую.
  * -------------------------------------------------------------------------
  */
 
@@ -33,6 +32,8 @@ $groups_id = (int) ($_POST['groups_id'] ?? 0);
 $status = (int) ($_POST['status'] ?? 0);
 
 $allowed_group_ids = [6, 7, 8];
+$currentMonth = (int) date('n');
+$currentYear = (int) date('Y');
 
 if ($groups_id > 0 && !in_array($groups_id, $allowed_group_ids, true)) {
    Session::addMessageAfterRedirect(
@@ -55,6 +56,16 @@ if ($users_id <= 0 && $groups_id <= 0) {
 }
 
 if ($month < 1 || $month > 12 || $year < 2010) {
+   Session::addMessageAfterRedirect(
+      __('Некорректные параметры формы. Проверьте выбранные значения.', 'ticketreport'),
+      false,
+      ERROR
+   );
+   Html::back();
+   exit;
+}
+
+if ($year == $currentYear && $month > $currentMonth) {
    Session::addMessageAfterRedirect(
       __('Некорректные параметры формы. Проверьте выбранные значения.', 'ticketreport'),
       false,

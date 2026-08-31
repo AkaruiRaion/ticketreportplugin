@@ -31,7 +31,7 @@ class PluginTicketreportReport
       $result = [];
 
       if ($groups_id <= 0) {
-         return $result;
+         return $result; 
       }
 
       $users = Group_User::getGroupUsers($groups_id);
@@ -143,8 +143,8 @@ class PluginTicketreportReport
          ];
 
          $dateCondition = [
-            ['glpi_tickets.closedate' => ['>=', $start]],
-            ['glpi_tickets.closedate' => ['<=', $end]],
+            ['glpi_tickets.date_mod' => ['>=', $start]],
+            ['glpi_tickets.date_mod' => ['<=', $end]],
          ];
       }
 
@@ -152,7 +152,7 @@ class PluginTicketreportReport
          'SELECT'     => [
             'glpi_tickets.id AS id',
             'glpi_tickets.name AS name',
-            'glpi_tickets.closedate AS closedate',
+            'glpi_tickets.date_mod AS date_mod',
             'glpi_tickets_users.users_id AS users_id',
          ],
          'FROM'       => 'glpi_tickets',

@@ -18,8 +18,6 @@ include('../../../inc/includes.php');
 Session::checkLoginUser();
 Session::checkRight('profile', UPDATE);
 
-//Session::checkCSRF($_POST);
-
 if (isset($_POST['update']) && isset($_POST['id'])) {
    $profiles_id = (int) $_POST['id'];
    $right       = (int) ($_POST['right'] ?? 0);
